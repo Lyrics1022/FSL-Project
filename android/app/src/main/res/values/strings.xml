@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">sign_language_translator</string>
+    <string name="recording_status">Recording&#8230;</string>
+    <string name="stop_recording">Stop Recording</string>
+    <string name="result_processing">Result: Processing&#8230;</string>
+    <string name="confidence_placeholder">Confidence: &#8212;</string>
+    <string name="idle_status">Idle</string>
+    <string name="start_recording">Start Recording</string>
+    <string name="result_text">Result: %1$s</string>
+    <string name="confidence_text">Confidence: %1$d%%</string>
+    <string name="camera_error">Failed to initialize camera.</string>
+    <string name="permission_required">Camera permission required.</string>
+</resources>

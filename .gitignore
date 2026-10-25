@@ -49,6 +49,19 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
+# Android Studio & Gradle
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/.kotlin/
+android/*.iml
+android/**/*.iml
+android/local.properties
+android/.cxx/
+android/.externalNativeBuild/
+android/captures/
+
 # Temporary logs & crash dumps
 *.log
 *.tmp

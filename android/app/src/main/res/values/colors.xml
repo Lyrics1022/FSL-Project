@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Surfaces -->
+    <color name="bg">#0B0F14</color>
+    <color name="surface">#131A22</color>
+    <color name="camera_bg">#0E141B</color>
+    <color name="border">#263240</color>
+
+    <!-- Text -->
+    <color name="text_primary">#F1F5F9</color>
+    <color name="text_secondary">#94A3B8</color>
+
+    <!-- Brand accent (teal) -->
+    <color name="accent">#2DD4BF</color>
+    <color name="on_accent">#04201C</color>
+    <color name="accent_container">#0F2E2B</color>
+
+    <!-- Recording (red is reserved for this) -->
+    <color name="record">#DC2626</color>
+    <color name="record_dot">#F87171</color>
+    <color name="scrim_chip">#CC0B0F14</color>
+
+    <!-- Confidence scale -->
+    <color name="success">#34D399</color>
+    <color name="warning">#FBBF24</color>
+    <color name="error">#F87171</color>
+</resources>

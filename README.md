@@ -34,6 +34,11 @@ flowchart LR
 ```text
 FSL_Project/
 ├── .agents/skills/            # Specialized development & ML agent skills
+├── android/                   # Full Android Studio project & UI (sign_language_translator)
+│   ├── app/src/main/res/      # Android UI layouts (activity_main.xml), icons, themes
+│   ├── app/src/main/java/     # Kotlin tracking, classification, and CameraX pipeline
+│   ├── app/src/main/assets/   # Bundled ONNX model and MediaPipe tasks
+│   └── build.gradle.kts       # Android Gradle dependencies & SDK config
 ├── data/                      # Sample clips and metadata
 ├── FSL_Dataset/               # Recorded FSL video clips & landmark feature files (.MOV / .npy)
 ├── FSL_Features/              # Pre-extracted temporal feature vectors
@@ -125,6 +130,13 @@ python -m src.realtime.stream_inference
 pytest
 ```
 All unit and integration tests run across normalizers, classifiers, and export pipelines.
+
+### 5. Running the Android Studio App
+1. Open **Android Studio**.
+2. Select **Open an Existing Project** and navigate to the `android/` directory inside this repository.
+3. Allow Gradle to sync dependencies (CameraX, MediaPipe Tasks Vision, ONNX Runtime Android).
+4. Connect an Android device (or launch an emulator with camera support) and click **Run 'app'** (`Shift + F10`).
+5. The mobile app loads the bundled `fsl_model.onnx` and performs live on-device Filipino Sign Language translation!
 
 ---
 

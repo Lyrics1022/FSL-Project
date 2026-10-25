@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical">
+
+    <!-- Header: title + offline chip -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="sans-serif-medium"
+            android:text="Sign translator"
+            android:textColor="@color/text_primary"
+            android:textSize="20sp" />
+
+        <TextView
+            android:id="@+id/chipOffline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_chip_offline"
+            android:drawableStart="@drawable/ic_cloud_off"
+            android:drawablePadding="6dp"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center_vertical"
+            android:paddingStart="10dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="5dp"
+            android:text="Offline"
+            android:textColor="@color/accent"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- Camera preview with recording chip overlay -->
+    <FrameLayout
+        android:id="@+id/cameraContainer"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_camera_frame"
+        android:clipToOutline="true"
+        android:padding="1dp">
+
+        <androidx.camera.view.PreviewView
+            android:id="@+id/viewFinder"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/camera_bg"
+            app:implementationMode="compatible"
+            app:scaleType="fillCenter" />
+
+        <com.example.sign_language_translator.LandmarkOverlayView
+            android:id="@+id/landmarkOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <LinearLayout
+            android:id="@+id/layoutStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="12dp"
+            android:background="@drawable/bg_chip_recording"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="10dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="5dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <ImageView
+                android:id="@+id/imgTimerDot"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/dot_recording" />
+
+            <TextView
+                android:id="@+id/tvTimer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="00:00"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                tools:text="00:04" />
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btnFlipCamera"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="12dp"
+            android:background="@drawable/bg_circle_button"
+            android:contentDescription="Flip Camera"
+            android:padding="10dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_flip_camera" />
+    </FrameLayout>
+
+    <!-- Record / stop button -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnRecord"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/bg_button_start"
+        android:drawablePadding="8dp"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:stateListAnimator="@null"
+        android:text="Start recording"
+        android:textAllCaps="false"
+        android:textColor="@color/on_accent"
+        android:textSize="16sp"
+        tools:background="@drawable/bg_button_stop"
+        tools:drawableStart="@drawable/ic_square"
+        tools:text="Stop recording"
+        tools:textColor="@android:color/white" />
+
+    <!-- Result card -->
+    <LinearLayout
+        android:id="@+id/cardResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:background="@drawable/bg_card"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Translation"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/tvResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginBottom="12dp"
+            android:accessibilityLiveRegion="polite"
+            android:fontFamily="sans-serif-medium"
+            android:text="Ready"
+            android:textColor="@color/text_secondary"
+            android:textSize="32sp"
+            tools:text="HELLO"
+            tools:textColor="@color/text_primary" />
+
+        <!-- Accuracy: hidden until a translation is ready, then pops in -->
+        <LinearLayout
+            android:id="@+id/groupAccuracy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="invisible"
+            tools:visibility="visible">
+
+            <ProgressBar
+                android:id="@+id/progressConfidence"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:max="100"
+                android:maxHeight="6dp"
+                android:minHeight="6dp"
+                android:progress="0"
+                android:progressDrawable="@drawable/progress_confidence"
+                tools:progress="92" />
+
+            <TextView
+                android:id="@+id/tvConfidence"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="0% confident"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                tools:text="92% confident"
+                tools:textColor="@color/success" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

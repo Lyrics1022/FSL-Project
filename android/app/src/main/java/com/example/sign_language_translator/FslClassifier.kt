@@ -173,6 +173,7 @@ class FslClassifier(private val context: Context) : AutoCloseable {
         val formattedLabel = rawLabel
             .removePrefix("FSL_Dataset_")
             .replace("_", " ")
+            .replace("WEELCHAIR", "WHEELCHAIR")
             .trim()
 
         return RecognitionResult(

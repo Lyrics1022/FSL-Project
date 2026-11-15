@@ -3,7 +3,9 @@ Fast Feature Extractor for Strategy B: Top 20 Essential Daily Signs.
 Extracts 10 videos per sign with optimized temporal sampling.
 """
 
+from concurrent.futures import ProcessPoolExecutor
 import json
+import os
 from pathlib import Path
 import cv2
 import numpy as np
@@ -12,9 +14,37 @@ from mediapipe.tasks.python import vision, BaseOptions
 
 from src.preprocessing.normalizer import SpatialNormalizer, TemporalResampler
 
-# Load active 20 daily signs directly from models/vocab.json
+# Load active signs directly from models/vocab.json
 with open("models/vocab.json", "r", encoding="utf-8") as _f:
     TOP_20_SIGNS = json.load(_f)
+
+_WORKER_HAND_LM = None
+_WORKER_POSE_LM = None
+
+
+def _init_worker():
+    global _WORKER_HAND_LM, _WORKER_POSE_LM
+    hand_opts = vision.HandLandmarkerOptions(
+        base_options=BaseOptions(model_asset_path="models/tasks/hand_landmarker.task"),
+        num_hands=2,
+        min_hand_detection_confidence=0.3,
+    )
+    pose_opts = vision.PoseLandmarkerOptions(
+        base_options=BaseOptions(model_asset_path="models/tasks/pose_landmarker_lite.task"),
+        min_pose_detection_confidence=0.3,
+    )
+    _WORKER_HAND_LM = vision.HandLandmarker.create_from_options(hand_opts)
+    _WORKER_POSE_LM = vision.PoseLandmarker.create_from_options(pose_opts)
+
+
+def _process_single_video(args):
+    video_path, out_file = args
+    try:
+        features = extract_video_fast(video_path, _WORKER_HAND_LM, _WORKER_POSE_LM, target_len=30)
+        np.save(out_file, features)
+        return (True, str(video_path))
+    except Exception as e:
+        return (False, f"{video_path}: {e}")
 
 
 
@@ -85,57 +115,63 @@ def extract_video_fast(video_path: Path, hand_lm, pose_lm, target_len: int = 30)
     return TemporalResampler.resample_sequence(seq, target_len=target_len)
 
 
+def _resolve_folder(base_dir: Path, name: str):
+    direct = base_dir / name
+    if direct.exists():
+        return direct
+    key = name.replace("’", "'").replace("'", "")
+    for d in base_dir.iterdir():
+        if d.is_dir() and d.name.replace("’", "'").replace("'", "") == key:
+            return d
+    return None
+
+
 def main():
-    dataset_dir = Path(r"c:\Users\Rose\Desktop\FSL_Project\FSL_Dataset")
-    output_dir = Path(r"c:\Users\Rose\Desktop\FSL_Project\FSL_Features")
+    dataset_dir = Path("FSL_Dataset")
+    output_dir = Path("FSL_Features")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    hand_opts = vision.HandLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path="models/tasks/hand_landmarker.task"),
-        num_hands=2,
-        min_hand_detection_confidence=0.3,
-    )
-    pose_opts = vision.PoseLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path="models/tasks/pose_landmarker_lite.task"),
-        min_pose_detection_confidence=0.3,
-    )
+    tasks = []
+    skipped = 0
 
-    print("[*] Initializing MediaPipe Tasks models...")
-    hand_lm = vision.HandLandmarker.create_from_options(hand_opts)
-    pose_lm = vision.PoseLandmarker.create_from_options(pose_opts)
-
-    print(f"[*] Starting Strategy B extraction for {len(TOP_20_SIGNS)} daily signs (10 videos each)...")
-    total_processed = 0
-
-    for idx, folder_name in enumerate(TOP_20_SIGNS, 1):
-        folder = dataset_dir / folder_name
-        if not folder.exists():
+    for folder_name in TOP_20_SIGNS:
+        folder = _resolve_folder(dataset_dir, folder_name)
+        if folder is None:
             print(f"[!] Warning: Folder {folder_name} not found.")
             continue
 
-        out_folder = output_dir / folder_name
+        out_folder = _resolve_folder(output_dir, folder_name) or (output_dir / folder.name)
         out_folder.mkdir(exist_ok=True)
 
-        # Process all available videos per folder (up to 22 videos)
         videos = sorted(list(folder.glob("*.MOV")))
-        print(f"[{idx}/{len(TOP_20_SIGNS)}] Processing {folder_name} ({len(videos)} videos)...")
-
         for v in videos:
             out_file = out_folder / f"{v.stem}.npy"
             if out_file.exists():
-                total_processed += 1
-                continue
+                skipped += 1
+            else:
+                tasks.append((v, out_file))
 
-            try:
-                features = extract_video_fast(v, hand_lm, pose_lm, target_len=30)
-                np.save(out_file, features)
-                total_processed += 1
-            except Exception as e:
-                print(f"    Error processing {v.name}: {e}")
+    print(f"[*] Active vocab: {len(TOP_20_SIGNS)} signs | Already extracted: {skipped} | Pending: {len(tasks)}")
+    if not tasks:
+        print("[+] All features already extracted!")
+        return
 
-    hand_lm.close()
-    pose_lm.close()
-    print(f"[+] Extraction Complete! Total processed files: {total_processed} across {len(TOP_20_SIGNS)} signs.")
+    workers = min(8, os.cpu_count() or 4)
+    print(f"[*] Starting parallel MediaPipe extraction with {workers} workers...")
+    done = 0
+    errors = 0
+
+    with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker) as executor:
+        for ok, info in executor.map(_process_single_video, tasks):
+            if ok:
+                done += 1
+            else:
+                errors += 1
+                print(f"    Error processing {info}")
+            if (done + errors) % 50 == 0 or (done + errors) == len(tasks):
+                print(f"    Progress: {done + errors}/{len(tasks)} (ok={done}, err={errors})")
+
+    print(f"[+] Extraction Complete! Newly extracted: {done}, skipped: {skipped}, errors: {errors}")
 
 
 if __name__ == "__main__":

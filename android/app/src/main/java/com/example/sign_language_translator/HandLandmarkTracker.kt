@@ -41,6 +41,8 @@ class HandLandmarkTracker(private val context: Context) : AutoCloseable {
     @Volatile var isRecording: Boolean = false
     @Volatile private var framesWithHandsCount: Int = 0
     @Volatile private var totalRecordedFrames: Int = 0
+    @Volatile private var lastGoodHandFeatures: FloatArray? = null
+    @Volatile private var consecutiveEmptyHandFrames: Int = 0
 
     init {
         setupLandmarker()
@@ -88,6 +90,8 @@ class HandLandmarkTracker(private val context: Context) : AutoCloseable {
             frameBuffer.clear()
             framesWithHandsCount = 0
             totalRecordedFrames = 0
+            lastGoodHandFeatures = null
+            consecutiveEmptyHandFrames = 0
         }
         isRecording = true
     }
@@ -105,14 +109,46 @@ class HandLandmarkTracker(private val context: Context) : AutoCloseable {
             frameBuffer.clear()
             framesWithHandsCount = 0
             totalRecordedFrames = 0
+            lastGoodHandFeatures = null
+            consecutiveEmptyHandFrames = 0
         }
 
         if (capturedFrames.isEmpty() || handsCount == 0) {
             return MotionData(FloatArray(TARGET_SEQ_LEN * FEATURE_DIM), handsCount, totalCount)
         }
 
+        // Active Sign Windowing:
+        // Filter out idle leading preparation and trailing recovery frames where hands are absent,
+        // exactly mirroring the dataset preprocessing (extract_top20_fast.py).
+        // This ensures the 30-frame temporal window spans the true active sign gesture.
+        val handEnergies = FloatArray(capturedFrames.size) { i ->
+            var sum = 0f
+            val f = capturedFrames[i]
+            for (k in 0 until 126) {
+                sum += kotlin.math.abs(f[k])
+            }
+            sum
+        }
+
+        var firstActive = -1
+        var lastActive = -1
+        for (i in handEnergies.indices) {
+            if (handEnergies[i] > 0.05f) {
+                if (firstActive == -1) firstActive = i
+                lastActive = i
+            }
+        }
+
+        val effectiveFrames: List<FloatArray> = if (firstActive != -1 && (lastActive - firstActive) >= 3) {
+            val start = maxOf(0, firstActive - 1)
+            val end = minOf(capturedFrames.size, lastActive + 2)
+            capturedFrames.subList(start, end)
+        } else {
+            capturedFrames
+        }
+
         // Resample captured frames to exactly TARGET_SEQ_LEN (30 frames)
-        val resampled = resampleSequence(capturedFrames, TARGET_SEQ_LEN)
+        val resampled = resampleSequence(effectiveFrames, TARGET_SEQ_LEN)
         return MotionData(resampled, handsCount, totalCount)
     }
 
@@ -166,26 +202,17 @@ class HandLandmarkTracker(private val context: Context) : AutoCloseable {
                         if (dist > maxDist) maxDist = dist
                     }
 
-                    // Chirality & Dominant Hand Calibration:
-                    // 1) Single-Hand Signs (e.g. HELLO, YES, NO, THANK YOU, TODAY, TOMORROW, UNDERSTAND):
-                    //    Regardless of whether left or right hand is used, always map to the canonical
-                    //    dominant hand slot (offset 63 = Right Hand in training data).
-                    //    If the detected hand is Left, invert the local X axis relative to wrist
-                    //    so its skeletal morphology is identical to a Right hand.
-                    // 2) Two-Handed Signs (e.g. GOOD MORNING, GOOD EVENING, HOW ARE YOU):
-                    //    Map each hand to its respective slot (LH=0, RH=63). If front camera is active,
-                    //    compensate for front-facing mirror inversion.
-                    val targetOffset: Int
-                    val invertLocalX: Boolean
-
-                    if (isSingleHand) {
-                        targetOffset = 63 // Canonical primary hand slot
-                        invertLocalX = rawIsLeft
-                    } else {
-                        val effectiveIsLeft = if (isFrontCamera) !rawIsLeft else rawIsLeft
-                        targetOffset = if (effectiveIsLeft) 0 else 63
-                        invertLocalX = isFrontCamera
-                    }
+                    // Hand Assignment & Chirality:
+                    // In front camera (selfie mode), the raw CameraX bitmap is unmirrored,
+                    // so the user's physical right hand appears on the left of the image and is
+                    // detected by MediaPipe as a left hand.
+                    // We map physical hands consistently:
+                    //   Physical Left hand -> slot 0..62
+                    //   Physical Right hand -> slot 63..125
+                    // And invert local X on front camera so 3D morphology matches canonical orientation.
+                    val effectiveIsLeft = if (isFrontCamera) !rawIsLeft else rawIsLeft
+                    val targetOffset = if (effectiveIsLeft) 0 else 63
+                    val invertLocalX = isFrontCamera
 
                     for (j in 0 until min(21, landmarks.size)) {
                         val lm = landmarks[j]
@@ -195,6 +222,18 @@ class HandLandmarkTracker(private val context: Context) : AutoCloseable {
                         frameFeatures[baseIdx + 1] = (lm.y() - wrist.y()) / maxDist
                         frameFeatures[baseIdx + 2] = (lm.z() - wrist.z()) / maxDist
                     }
+                }
+            }
+
+            if (hasHand) {
+                lastGoodHandFeatures = frameFeatures.copyOfRange(0, 126)
+                consecutiveEmptyHandFrames = 0
+            } else {
+                consecutiveEmptyHandFrames++
+                // If it's a momentary 1-frame tracking flicker while recording, smoothly hold the previous hand pose
+                if (isRecording && consecutiveEmptyHandFrames == 1 && lastGoodHandFeatures != null) {
+                    System.arraycopy(lastGoodHandFeatures!!, 0, frameFeatures, 0, 126)
+                    hasHand = true
                 }
             }
 

@@ -60,6 +60,7 @@ def export_model_to_onnx(
             "landmarks_sequence": {0: "batch_size"},
             "class_logits": {0: "batch_size"},
         },
+        dynamo=False,
     )
 
     # 1. Verify ONNX Graph
